@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carnet de Sport</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .completed {
+            background-color: #28a745; /* Vert terminé */
+            color: white;
+        }
+        .day-header {
+            background-color: #4A5568;
+            color: white;
+            font-size: 1.25rem;
+            padding: 0.5rem;
+            border-radius: 0.375rem;
+            margin-top: 1rem;
+            cursor: pointer;
+        }
+        .exercise-list {
+            margin-top: 1rem;
+            display: none;
+        }
+        .exercise-card {
+            border-radius: 8px;
+            margin: 5px;
+            padding: 10px;
+            background-color: #2D3748;
+            color: white;
+        }
+        .open { display: block !important; }
+        .btn { border-radius: 5px; padding: 5px 10px; margin: 5px; }
+        .hidden { display: none; }
+    </style>
+</head>
+
+<body class="bg-gray-800 text-white p-6">
+    <div class="max-w-xl mx-auto bg-gray-700 p-6 rounded-lg shadow-md">
+        <h1 class="text-2xl font-bold mb-4 text-center">Carnet de Sport</h1>
+
+        <!-- Formulaire -->
+        <form action="/add" method="POST" class="mb-4">
+            <input type="text" name="name" placeholder="Nom de l'exercice" class="w-full p-2 mb-2 border rounded bg-gray-600">
+            <input type="number" name="repetitions" placeholder="Répétitions" class="w-full p-2 mb-2 border rounded bg-gray-600">
+            <input type="number" name="weight" placeholder="Poids (kg)" class="w-full p-2 mb-2 border rounded bg-gray-600">
+
+            <select name="day" class="w-full p-2 mb-2 border rounded bg-gray-600">
+                <option>Lundi</option><option>Mardi</option><option>Mercredi</option>
+                <option>Jeudi</option><option>Vendredi</option><option>Samedi</option><option>Dimanche</option>
+            </select>
+
+            <button type="submit" class="w-full bg-blue-500 p-2 rounded">Ajouter un exercice</button>
+        </form>
+
+        <!-- Liste des exercices -->
+        {% for day, exercises_list in exercises.items() %}
+        <div class="day-header" onclick="toggleVisibility('{{ day }}')">{{ day }}</div>
+
+        <div class="exercise-list" id="{{ day }}">
+            {% for exercise in exercises_list %}
+            <div class="exercise-card {{ 'completed' if exercise.completed else '' }}" id="exercise-{{ day }}-{{ loop.index0 }}">
+
+                <div>
+                    <strong>{{ exercise.name }}</strong><br>
+                    Répétitions : {{ exercise.repetitions }} | Poids : {{ exercise.weight }} kg
+                </div>
+
+                <div class="flex justify-between mt-2">
+
+                    <!-- Bouton Valider -->
+                    <a id="complete-btn-{{ day }}-{{ loop.index0 }}"
+                       onclick="completeExercise('{{ day }}', {{ loop.index0 }})"
+                       class="btn bg-green-500 p-2 {{ 'hidden' if exercise.completed else '' }}">
+                       Valider
+                    </a>
+
+                    <!-- Texte Terminé -->
+                    <span id="completed-text-{{ day }}-{{ loop.index0 }}"
+                          class="text-green-500 {{ '' if exercise.completed else 'hidden' }}">
+                          Terminé
+                    </span>
+
+                    <!-- Annuler -->
+                    <a onclick="cancelExercise('{{ day }}', {{ loop.index0 }})"
+                       class="bg-red-500 text-white p-2 rounded btn">Annuler</a>
+
+                    <!-- Reset -->
+                    <a onclick="resetExercise('{{ day }}', {{ loop.index0 }})"
+                       class="bg-yellow-500 text-white p-2 rounded btn">Reset</a>
+
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+
+<script>
+/* Ouvrir / fermer les jours */
+function toggleVisibility(day) {
+    const list = document.getElementById(day);
+    list.classList.toggle("open");
+    localStorage.setItem(day, list.classList.contains("open") ? "open" : "closed");
+}
+
+/* Garder l'état ouvert/fermé */
+window.onload = function () {
+    const days = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
+    days.forEach(day => {
+        const div = document.getElementById(day);
+        if (!div) return;
+        if (localStorage.getItem(day) === "open") div.classList.add("open");
+    });
+};
+
+/* VALIDER */
+function completeExercise(day, index) {
+    fetch(`/complete/${day}/${index}`)
+        .then(r => {
+            if (r.ok) {
+                document.getElementById(`exercise-${day}-${index}`).classList.add("completed");
+                document.getElementById(`complete-btn-${day}-${index}`).classList.add("hidden");
+                document.getElementById(`completed-text-${day}-${index}`).classList.remove("hidden");
+            }
+        });
+}
+
+/* ANNULER (supprime la ligne) */
+function cancelExercise(day, index) {
+    fetch(`/cancel/${day}/${index}`, { method: "POST" })
+        .then(r => {
+            if (r.ok) {
+                const el = document.getElementById(`exercise-${day}-${index}`);
+                if (el) el.remove();
+            }
+        });
+}
+
+/* RESET (revient à l'état initial non terminé) */
+function resetExercise(day, index) {
+    fetch(`/reset/${day}/${index}`, { method: "POST" })
+        .then(r => {
+            if (r.ok) {
+                const card = document.getElementById(`exercise-${day}-${index}`);
+                if (!card) return;
+                card.classList.remove("completed");
+
+                document.getElementById(`complete-btn-${day}-${index}`).classList.remove("hidden");
+                document.getElementById(`completed-text-${day}-${index}`).classList.add("hidden");
+            }
+        });
+}
+</script>
+
+</body>
+</html>
